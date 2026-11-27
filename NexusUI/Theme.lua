@@ -5,5 +5,8 @@ return {
 	Accent = Color3.fromRGB(0,191,255), Text = Color3.fromRGB(255,255,255),
 	Muted = Color3.fromRGB(155,159,171), Success = Color3.fromRGB(77,220,151),
 	Error = Color3.fromRGB(255,51,51), Warning = Color3.fromRGB(255,190,65),
-	Font = Enum.Font.Gotham, Duration = 0.18, Radius = 8,
+	Font = Enum.Font.GothamMedium, Duration = 0.22, Radius = 8,
+	Hover = Color3.fromRGB(37,40,47), ActiveTab = Color3.fromRGB(17,32,43),
+	Dim = Color3.fromRGB(93,100,115), AccentDark = Color3.fromRGB(0,110,190),
+	AccentLight = Color3.fromRGB(116,225,255), Padding = 20,
 }

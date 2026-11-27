@@ -1,5 +1,15 @@
 # NexusUI
 
+### Visual refresh 1.1
+
+Pain�is com UIPadding (20 px horizontal / 16 px vertical), cantos de 8 px, contornos discretos e gradiente de superf�cie. Toggle com transi��o de posi��o/cor, slider com trilho de 10 px e thumb com borda branca e sombra. Dropdown com seta animada � direita. Abas com fundo escuro e indicador neon. GothamMedium, t�tulos de 15 px e subt�tulo de 9 px. Hover amplia bot�es em 1.05x com retorno suave e feedback de press�o. A API p�blica � compat�vel com a vers�o anterior.
+
+Execute a demonstra��o publicada:
+
+```lua
+loadstring(game:HttpGet('https://raw.githubusercontent.com/lalalajhuu/NexusUI/main/ExampleRemote.lua'))()
+```
+
 ## GitHub / arquivo �nico
 
 Suba esta pasta para um reposit�rio p�blico no GitHub. O arquivo pronto para carregamento remoto � **dist/NexusUI.lua**; ele inclui todos os m�dulos e retorna a mesma API. Veja **ExampleRemote.lua** para um exemplo completo.

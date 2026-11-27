@@ -1,7 +1,7 @@
 -- ReplicatedStorage.NexusUI.Init (ModuleScript). Require from a LocalScript.
 local Theme=require(script.Parent.Theme)
 local Window=require(script.Parent.Window)
-local NexusUI={Version='1.0.0'}
+local NexusUI={Version='1.1.0'}
 -- NexusUI:CreateWindow({Title='NEXUS', Theme={Accent=Color3.fromRGB(255,51,51)}})
 function NexusUI:CreateWindow(options)
 	options=options or {}

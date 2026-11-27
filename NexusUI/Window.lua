@@ -1,5 +1,5 @@
 local Players=game:GetService('Players')
-local Workspace=game:GetService('Workspace')
+
 local U=require(script.Parent.Utility)
 local Elements=require(script.Parent.Elements)
 local Window={}; Window.__index=Window
@@ -20,13 +20,13 @@ function Window.new(options,theme)
 	for i=1,3 do U.New('UIStroke',{Color=Color3.new(),Thickness=i*3,Transparency=.8+i*.04,ApplyStrokeMode=Enum.ApplyStrokeMode.Border},frame) end
 	local header=U.New('Frame',{Size=UDim2.new(1,-112,0,58),BackgroundTransparency=1,Active=true},frame)
 	local title=U.Text(header,options.Title or 'NEXUS',18,theme); title.Position=UDim2.fromOffset(22,11)
-	local subtitle=U.Text(header,options.Subtitle or 'INTERFACE FRAMEWORK',10,theme); subtitle.TextColor3=theme.Muted; subtitle.Position=UDim2.fromOffset(23,32)
+	local subtitle=U.Text(header,options.Subtitle or 'INTERFACE FRAMEWORK',9,theme); subtitle.TextColor3=theme.Dim; subtitle.Position=UDim2.fromOffset(23,32)
 	U.New('Frame',{Position=UDim2.fromOffset(0,58),Size=UDim2.new(1,0,0,1),BackgroundColor3=theme.Border,BorderSizePixel=0},frame)
 	local minimize=U.Button(frame,'-',theme); minimize.Position=UDim2.new(1,-94,0,13); minimize.Size=UDim2.fromOffset(36,32)
-	local close=U.Button(frame,'�',theme); close.Position=UDim2.new(1,-50,0,13); close.Size=UDim2.fromOffset(36,32)
+	local close=U.Button(frame,utf8.char(0xD7),theme); close.Position=UDim2.new(1,-50,0,13); close.Size=UDim2.fromOffset(36,32)
 	local body=U.New('Frame',{Position=UDim2.fromOffset(0,59),Size=UDim2.new(1,0,1,-59),BackgroundTransparency=1},frame); self.Body=body
 	local sidebar=U.New('ScrollingFrame',{Position=UDim2.fromOffset(12,14),Size=UDim2.new(0,152,1,-28),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y},body); self.Sidebar=sidebar
-	U.New('UIListLayout',{Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder},sidebar)
+	U.New('UIListLayout',{Padding=UDim.new(0,10),SortOrder=Enum.SortOrder.LayoutOrder},sidebar); U.Padding(sidebar,5,4)
 	self.Pages=U.New('Frame',{Position=UDim2.fromOffset(180,14),Size=UDim2.new(1,-196,1,-28),BackgroundTransparency=1,ClipsDescendants=true},body)
 	local function resize()
 		if self.Destroyed then return end
@@ -56,6 +56,7 @@ function Window.new(options,theme)
 		self.Minimized=not self.Minimized; body.Visible=not self.Minimized
 		U.Tween(frame,{Size=UDim2.fromOffset(self.Width or 760,self.Minimized and 59 or (self.Height or 520))},theme)
 	end)
+	U.Hover(self,minimize); U.Hover(self,close)
 	U.Connect(self,close.Activated,function() self:Destroy() end)
 	self.Notices=U.New('Frame',{AnchorPoint=Vector2.new(1,1),Position=UDim2.new(1,-12,1,-12),Size=UDim2.new(1,-24,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},root)
 	U.New('UISizeConstraint',{MaxSize=Vector2.new(340,10000)},self.Notices)
@@ -65,9 +66,13 @@ end
 function Window:CreateTab(options)
 	assert(not self.Destroyed,'Window destroyed'); options=options or {}
 	local tab=setmetatable({Window=self},Tab); local t=self.Theme
-	tab.Button=U.Button(self.Sidebar,options.Name or 'Tab',t); tab.Button.LayoutOrder=#self.Tabs+1; tab.Button.Size=UDim2.new(1,-4,0,44)
+	tab.Button=U.Button(self.Sidebar,options.Name or 'Tab',t); tab.Button.LayoutOrder=#self.Tabs+1; tab.Button.Size=UDim2.new(1,-14,0,46)
+	tab.Button.TextXAlignment=Enum.TextXAlignment.Left; U.Padding(tab.Button,18,0)
+	tab.Indicator=U.New('Frame',{Position=UDim2.new(0,-18,.5,-10),Size=UDim2.fromOffset(3,20),BackgroundColor3=t.Accent,BackgroundTransparency=1,BorderSizePixel=0},tab.Button); U.Round(tab.Indicator,2)
+	U.Gradient(tab.Indicator,t.AccentLight,t.Accent,90)
+	U.Hover(self,tab.Button,function(hovered) local color=tab.Selected and t.ActiveTab or t.Panel; return hovered and color:Lerp(t.Text,.04) or color end)
 	tab.Content=U.New('ScrollingFrame',{Visible=false,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),BorderSizePixel=0,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=3,ScrollBarImageColor3=t.Accent},self.Pages)
-	U.New('UIListLayout',{Padding=UDim.new(0,10),SortOrder=Enum.SortOrder.LayoutOrder},tab.Content)
+	U.New('UIListLayout',{Padding=UDim.new(0,14),SortOrder=Enum.SortOrder.LayoutOrder},tab.Content)
 	U.New('UIPadding',{PaddingTop=UDim.new(0,2),PaddingLeft=UDim.new(0,2),PaddingRight=UDim.new(0,8),PaddingBottom=UDim.new(0,10)},tab.Content)
 	table.insert(self.Tabs,tab)
 	U.Connect(self,tab.Button.Activated,function() self:SelectTab(tab) end)
@@ -77,8 +82,9 @@ end
 function Window:SelectTab(tab)
 	assert(table.find(self.Tabs,tab),'Tab belongs to another window')
 	for _,item in ipairs(self.Tabs) do
-		item.Content.Visible=item==tab
-		U.Tween(item.Button,{BackgroundColor3=item==tab and self.Theme.Accent or self.Theme.Surface,TextColor3=item==tab and self.Theme.Background or self.Theme.Muted},self.Theme)
+		item.Content.Visible=item==tab; item.Selected=item==tab
+		U.Tween(item.Indicator,{BackgroundTransparency=item==tab and 0 or 1},self.Theme)
+		U.Tween(item.Button,{BackgroundColor3=item==tab and self.Theme.ActiveTab or self.Theme.Panel,TextColor3=item==tab and self.Theme.Text or self.Theme.Muted},self.Theme)
 	end
 	tab.Content.Position=UDim2.fromOffset(0,8); U.Tween(tab.Content,{Position=UDim2.fromOffset(0,0)},self.Theme)
 end

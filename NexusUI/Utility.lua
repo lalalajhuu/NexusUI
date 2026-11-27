@@ -11,7 +11,36 @@ function U.Round(object, radius)
 	U.New('UICorner', {CornerRadius=UDim.new(0,radius or 8)}, object)
 end
 function U.Stroke(object, color)
-	return U.New('UIStroke', {Color=color, Thickness=1, ApplyStrokeMode=Enum.ApplyStrokeMode.Border}, object)
+	return U.New('UIStroke', {Color=color, Transparency=.45, Thickness=1, ApplyStrokeMode=Enum.ApplyStrokeMode.Border}, object)
+end
+function U.Padding(object, horizontal, vertical)
+	return U.New('UIPadding',{PaddingLeft=UDim.new(0,horizontal),PaddingRight=UDim.new(0,horizontal),
+		PaddingTop=UDim.new(0,vertical),PaddingBottom=UDim.new(0,vertical)},object)
+end
+function U.Gradient(object, first, last, rotation)
+	return U.New('UIGradient',{Color=ColorSequence.new(first,last),Rotation=rotation or 0},object)
+end
+-- Scale the visual content from its center without changing its layout footprint.
+-- Supply dynamic colors for stateful controls (tabs and toggles).
+function U.Hover(window, button, colors)
+	local t=window.Theme
+	local scale=U.New('UIScale',{Scale=1},button)
+	local idle=button.BackgroundColor3
+	local function color(hovered)
+		return colors and colors(hovered) or (hovered and t.Hover or idle)
+	end
+	U.Connect(window,button.MouseEnter,function()
+		U.Tween(scale,{Scale=1.05},t); U.Tween(button,{BackgroundColor3=color(true)},t)
+	end)
+	U.Connect(window,button.MouseLeave,function()
+		U.Tween(scale,{Scale=1},t); U.Tween(button,{BackgroundColor3=color(false)},t)
+	end)
+	U.Connect(window,button.InputBegan,function(input)
+		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then U.Tween(scale,{Scale=.98},t) end
+	end)
+	U.Connect(window,button.InputEnded,function(input)
+		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then U.Tween(scale,{Scale=1},t) end
+	end)
 end
 function U.Tween(object, props, theme)
 	local tween = TweenService:Create(object,TweenInfo.new(theme.Duration,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),props)

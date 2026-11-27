@@ -17,7 +17,10 @@ return {
 	Accent = Color3.fromRGB(0,191,255), Text = Color3.fromRGB(255,255,255),
 	Muted = Color3.fromRGB(155,159,171), Success = Color3.fromRGB(77,220,151),
 	Error = Color3.fromRGB(255,51,51), Warning = Color3.fromRGB(255,190,65),
-	Font = Enum.Font.Gotham, Duration = 0.18, Radius = 8,
+	Font = Enum.Font.GothamMedium, Duration = 0.22, Radius = 8,
+	Hover = Color3.fromRGB(37,40,47), ActiveTab = Color3.fromRGB(17,32,43),
+	Dim = Color3.fromRGB(93,100,115), AccentDark = Color3.fromRGB(0,110,190),
+	AccentLight = Color3.fromRGB(116,225,255), Padding = 20,
 }
 
 end
@@ -36,7 +39,36 @@ function U.Round(object, radius)
 	U.New('UICorner', {CornerRadius=UDim.new(0,radius or 8)}, object)
 end
 function U.Stroke(object, color)
-	return U.New('UIStroke', {Color=color, Thickness=1, ApplyStrokeMode=Enum.ApplyStrokeMode.Border}, object)
+	return U.New('UIStroke', {Color=color, Transparency=.45, Thickness=1, ApplyStrokeMode=Enum.ApplyStrokeMode.Border}, object)
+end
+function U.Padding(object, horizontal, vertical)
+	return U.New('UIPadding',{PaddingLeft=UDim.new(0,horizontal),PaddingRight=UDim.new(0,horizontal),
+		PaddingTop=UDim.new(0,vertical),PaddingBottom=UDim.new(0,vertical)},object)
+end
+function U.Gradient(object, first, last, rotation)
+	return U.New('UIGradient',{Color=ColorSequence.new(first,last),Rotation=rotation or 0},object)
+end
+-- Scale the visual content from its center without changing its layout footprint.
+-- Supply dynamic colors for stateful controls (tabs and toggles).
+function U.Hover(window, button, colors)
+	local t=window.Theme
+	local scale=U.New('UIScale',{Scale=1},button)
+	local idle=button.BackgroundColor3
+	local function color(hovered)
+		return colors and colors(hovered) or (hovered and t.Hover or idle)
+	end
+	U.Connect(window,button.MouseEnter,function()
+		U.Tween(scale,{Scale=1.05},t); U.Tween(button,{BackgroundColor3=color(true)},t)
+	end)
+	U.Connect(window,button.MouseLeave,function()
+		U.Tween(scale,{Scale=1},t); U.Tween(button,{BackgroundColor3=color(false)},t)
+	end)
+	U.Connect(window,button.InputBegan,function(input)
+		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then U.Tween(scale,{Scale=.98},t) end
+	end)
+	U.Connect(window,button.InputEnded,function(input)
+		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then U.Tween(scale,{Scale=1},t) end
+	end)
 end
 function U.Tween(object, props, theme)
 	local tween = TweenService:Create(object,TweenInfo.new(theme.Duration,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),props)
@@ -109,58 +141,70 @@ local function base(tab,options,height)
 	local w=tab.Window; local t=w.Theme
 	local frame=U.New('Frame',{BackgroundColor3=t.Panel,BorderSizePixel=0,Size=UDim2.new(1,-2,0,height or 64)},tab.Content)
 	U.Round(frame,t.Radius); U.Stroke(frame,t.Border)
-	local title=U.Text(frame,options.Name or 'Control',13,t); title.Position=UDim2.fromOffset(14,10); title.Size=UDim2.new(1,-28,0,20)
+	U.Gradient(frame,Color3.new(1,1,1),Color3.fromRGB(215,220,232),90)
+	-- Padding defines the shared content area; control coordinates below are relative to it.
+	U.Padding(frame,t.Padding,16)
+	local title=U.Text(frame,options.Name or 'Control',15,t); title.Position=UDim2.fromOffset(0,0); title.Size=UDim2.new(1,0,0,22)
 	local c=setmetatable({Frame=frame,Callback=options.Callback,Window=w},Control)
 	return c,w,t,title
 end
 -- tab:CreateToggle({Name='Enabled', Default=false, Callback=function(value) end})
 function Elements.Toggle(tab,o)
-	o=o or {}; local c,w,t,title=base(tab,o,56); title.Size=UDim2.new(1,-92,0,36); title.Position=UDim2.fromOffset(14,10)
-	local b=U.Button(c.Frame,'',t); b.Size=UDim2.fromOffset(48,28); b.Position=UDim2.new(1,-62,0,14)
+	o=o or {}; local c,w,t,title=base(tab,o,76); title.Size=UDim2.new(1,-76,1,0)
+	local b=U.Button(c.Frame,'',t); b.AnchorPoint=Vector2.new(.5,.5); b.Size=UDim2.fromOffset(50,28); b.Position=UDim2.new(1,-25,.5,0)
+	U.Stroke(b,t.Border)
+	local gradient=U.Gradient(b,t.AccentDark,t.AccentLight,25)
 	local knob=U.New('Frame',{Size=UDim2.fromOffset(20,20),BackgroundColor3=t.Text,BorderSizePixel=0},b); U.Round(knob,10)
 	c.Apply=function(v)
 		c.Value=v==true
 		U.Tween(b,{BackgroundColor3=c.Value and t.Accent or t.Surface},t)
-		U.Tween(knob,{Position=UDim2.fromOffset(c.Value and 24 or 4,4)},t)
+		gradient.Enabled=c.Value
+		U.Tween(knob,{Position=UDim2.fromOffset(c.Value and 26 or 4,4)},t)
 	end
+	U.Hover(w,b,function(hovered) local color=c.Value and t.Accent or t.Surface; return hovered and color:Lerp(t.Text,.12) or color end)
 	U.Connect(w,b.Activated,function() if not c.Dead then c:Set(not c.Value) end end)
 	c:Set(o.Default==true,true); return c
 end
 -- Numeric entry and pointer dragging share clamping / step rounding.
 function Elements.Slider(tab,o)
-	o=o or {}; local c,w,t,title=base(tab,o,90)
+	o=o or {}; local c,w,t,title=base(tab,o,120)
 	local low=o.Min or 0; local high=o.Max or 100; assert(high>low,'Slider Max must exceed Min')
 	local step=o.Step or 1; assert(step>0,'Slider Step must be positive')
-	title.Size=UDim2.new(1,-120,0,20)
-	local entry=U.Input(c.Frame,'',t); entry.Size=UDim2.fromOffset(80,30); entry.Position=UDim2.new(1,-94,0,8)
-	local hit=U.Button(c.Frame,'',t); hit.BackgroundTransparency=1; hit.Position=UDim2.fromOffset(16,42); hit.Size=UDim2.new(1,-32,0,40)
-	local track=U.New('Frame',{Position=UDim2.fromOffset(0,17),Size=UDim2.new(1,0,0,6),BackgroundColor3=t.Surface,BorderSizePixel=0},hit); U.Round(track,3)
-	local fill=U.New('Frame',{Size=UDim2.fromScale(0,1),BackgroundColor3=t.Accent,BorderSizePixel=0},track); U.Round(fill,3)
-	local knob=U.New('Frame',{AnchorPoint=Vector2.new(.5,.5),Size=UDim2.fromOffset(14,14),BackgroundColor3=t.Text,BorderSizePixel=0},track); U.Round(knob,7)
+	title.Size=UDim2.new(1,-92,0,32)
+	local entry=U.Input(c.Frame,'',t); entry.Size=UDim2.fromOffset(72,32); entry.Position=UDim2.new(1,-72,0,0); U.Stroke(entry,t.Border)
+	local hit=U.Button(c.Frame,'',t); hit.BackgroundTransparency=1; hit.Position=UDim2.fromOffset(8,40); hit.Size=UDim2.new(1,-16,0,44)
+	local track=U.New('Frame',{Position=UDim2.fromOffset(0,17),Size=UDim2.new(1,0,0,10),BackgroundColor3=t.Surface,BorderSizePixel=0},hit); U.Round(track,5); U.Stroke(track,t.Border)
+	local fill=U.New('Frame',{Size=UDim2.fromScale(0,1),BackgroundColor3=t.Accent,BorderSizePixel=0},track)
+	fill.BackgroundColor3=Color3.new(1,1,1); U.Round(fill,5); U.Gradient(fill,t.AccentDark,t.AccentLight)
+	local shadow=U.New('Frame',{AnchorPoint=Vector2.new(.5,.5),Size=UDim2.fromOffset(26,26),BackgroundColor3=Color3.new(),BackgroundTransparency=.55,BorderSizePixel=0},track); U.Round(shadow,13)
+	local knob=U.New('Frame',{AnchorPoint=Vector2.new(.5,.5),Size=UDim2.fromOffset(18,18),BackgroundColor3=t.Accent,BorderSizePixel=0},track); U.Round(knob,9)
+	local ring=U.Stroke(knob,t.Text); ring.Transparency=0; ring.Thickness=2
 	c.Apply=function(v)
 		v=tonumber(v) or low
 		if v~=v or math.abs(v)==math.huge then v=low end
 		c.Value=math.clamp(low+math.round((v-low)/step)*step,low,high)
 		entry.Text=string.format('%.6g',c.Value)
 		local ratio=(c.Value-low)/(high-low)
-		fill.Size=UDim2.fromScale(ratio,1); knob.Position=UDim2.fromScale(ratio,.5)
+		fill.Size=UDim2.fromScale(ratio,1); knob.Position=UDim2.fromScale(ratio,.5); shadow.Position=UDim2.new(ratio,0,.5,2)
 	end
 	U.Drag(w,hit,function(p) if not c.Dead then c:Set(low+math.clamp((p.X-track.AbsolutePosition.X)/math.max(track.AbsoluteSize.X,1),0,1)*(high-low)) end end)
 	U.Connect(w,entry.FocusLost,function() c:Set(tonumber(entry.Text) or c.Value) end)
 	c:Set(o.Default or low,true); return c
 end
 function Elements.Dropdown(tab,o)
-	o=o or {}; local c,w,t=base(tab,o,100); local values={}; local opened=false
-	local b=U.Button(c.Frame,'Select  ?',t); b.Position=UDim2.fromOffset(14,42); b.Size=UDim2.new(1,-28,0,42)
-	local panel=U.New('Frame',{Visible=false,BackgroundTransparency=1,Position=UDim2.fromOffset(14,94),Size=UDim2.new(1,-28,0,190)},c.Frame)
+	o=o or {}; local c,w,t=base(tab,o,128); local values={}; local opened=false
+	local b=U.Button(c.Frame,'Select',t); b.AnchorPoint=Vector2.new(.5,.5); b.Position=UDim2.new(.5,0,0,57); b.Size=UDim2.new(1,0,0,42); b.TextXAlignment=Enum.TextXAlignment.Left
+	U.Padding(b,14,0); U.Stroke(b,t.Border); U.Hover(w,b)
+	local arrow=U.Text(b,utf8.char(0x25BC),11,t); arrow.AnchorPoint=Vector2.new(1,.5); arrow.Position=UDim2.new(1,0,.5,0); arrow.Size=UDim2.fromOffset(16,20); arrow.TextColor3=t.Muted
+	local panel=U.New('Frame',{Visible=false,BackgroundTransparency=1,Position=UDim2.fromOffset(0,92),Size=UDim2.new(1,0,0,190)},c.Frame)
 	local search=U.Input(panel,'Search...',t)
 	local list=U.New('ScrollingFrame',{BackgroundTransparency=1,BorderSizePixel=0,Position=UDim2.fromOffset(0,46),Size=UDim2.new(1,0,0,140),CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=3,ScrollBarImageColor3=t.Accent},panel)
 	U.New('UIListLayout',{Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder},list)
 	local rows={}; local rowConnections={}
-	local function open(v) opened=v; panel.Visible=v; U.Tween(c.Frame,{Size=UDim2.new(1,-2,0,v and 300 or 100)},t) end
+	local function open(v) opened=v; panel.Visible=v; U.Tween(arrow,{Rotation=v and 180 or 0},t); U.Tween(c.Frame,{Size=UDim2.new(1,-2,0,v and 330 or 128)},t) end
 	c.Apply=function(v)
 		assert(v==nil or table.find(values,v),'Dropdown value must be an option')
-		c.Value=v; b.Text=v and tostring(v)..'  ?' or 'Select  ?'
+		c.Value=v; b.Text=v and tostring(v) or 'Select'
 	end
 	function c:SetOptions(newValues)
 		for _,connection in ipairs(rowConnections) do connection:Disconnect() end; table.clear(rowConnections)
@@ -181,20 +225,18 @@ function Elements.Dropdown(tab,o)
 	c:SetOptions(o.Options or {}); c:Set(o.Default,true); return c
 end
 function Elements.Button(tab,o)
-	o=o or {}; local c,w,t,title=base(tab,o,60); title:Destroy()
-	local b=U.Button(c.Frame,o.Name or 'Button',t); b.Position=UDim2.fromOffset(10,10); b.Size=UDim2.new(1,-20,0,40)
-	U.Connect(w,b.MouseEnter,function() U.Tween(b,{BackgroundColor3=t.Accent},t) end)
-	U.Connect(w,b.MouseLeave,function() U.Tween(b,{BackgroundColor3=t.Surface},t) end)
+	o=o or {}; local c,w,t,title=base(tab,o,80); title:Destroy()
+	local b=U.Button(c.Frame,o.Name or 'Button',t); b.AnchorPoint=Vector2.new(.5,.5); b.Position=UDim2.fromScale(.5,.5); b.Size=UDim2.new(1,0,0,40); U.Stroke(b,t.Border); U.Hover(w,b)
 	U.Connect(w,b.Activated,function() U.Callback(o.Callback) end); return c
 end
 function Elements.Textbox(tab,o)
-	o=o or {}; local c,w,t=base(tab,o,98)
-	local b=U.Input(c.Frame,o.Placeholder or 'Enter text...',t); b.Position=UDim2.fromOffset(14,42); b.Size=UDim2.new(1,-28,0,40)
+	o=o or {}; local c,w,t=base(tab,o,124)
+	local b=U.Input(c.Frame,o.Placeholder or 'Enter text...',t); b.Position=UDim2.fromOffset(0,40); b.Size=UDim2.new(1,0,0,40); U.Padding(b,12,0); U.Stroke(b,t.Border)
 	c.Apply=function(v) c.Value=tostring(v or ''); b.Text=c.Value end
 	U.Connect(w,b.FocusLost,function() c:Set(b.Text) end); c:Set(o.Default or '',true); return c
 end
 function Elements.ColorPicker(tab,o)
-	o=o or {}; local c,w,t=base(tab,o,270)
+	o=o or {}; local c,w,t=base(tab,o,310)
 	local h,s,v=0,1,1
 	local preview=U.New('Frame',{Position=UDim2.new(1,-54,0,10),Size=UDim2.fromOffset(40,22),BorderSizePixel=0},c.Frame); U.Round(preview,5)
 	local sv=U.Button(c.Frame,'',t); sv.Position=UDim2.fromOffset(14,42); sv.Size=UDim2.new(1,-76,0,155)
@@ -237,7 +279,7 @@ end
 
 factories.Window = function()
 local Players=game:GetService('Players')
-local Workspace=game:GetService('Workspace')
+
 local U=import("Utility")
 local Elements=import("Elements")
 local Window={}; Window.__index=Window
@@ -258,13 +300,13 @@ function Window.new(options,theme)
 	for i=1,3 do U.New('UIStroke',{Color=Color3.new(),Thickness=i*3,Transparency=.8+i*.04,ApplyStrokeMode=Enum.ApplyStrokeMode.Border},frame) end
 	local header=U.New('Frame',{Size=UDim2.new(1,-112,0,58),BackgroundTransparency=1,Active=true},frame)
 	local title=U.Text(header,options.Title or 'NEXUS',18,theme); title.Position=UDim2.fromOffset(22,11)
-	local subtitle=U.Text(header,options.Subtitle or 'INTERFACE FRAMEWORK',10,theme); subtitle.TextColor3=theme.Muted; subtitle.Position=UDim2.fromOffset(23,32)
+	local subtitle=U.Text(header,options.Subtitle or 'INTERFACE FRAMEWORK',9,theme); subtitle.TextColor3=theme.Dim; subtitle.Position=UDim2.fromOffset(23,32)
 	U.New('Frame',{Position=UDim2.fromOffset(0,58),Size=UDim2.new(1,0,0,1),BackgroundColor3=theme.Border,BorderSizePixel=0},frame)
 	local minimize=U.Button(frame,'-',theme); minimize.Position=UDim2.new(1,-94,0,13); minimize.Size=UDim2.fromOffset(36,32)
-	local close=U.Button(frame,'�',theme); close.Position=UDim2.new(1,-50,0,13); close.Size=UDim2.fromOffset(36,32)
+	local close=U.Button(frame,utf8.char(0xD7),theme); close.Position=UDim2.new(1,-50,0,13); close.Size=UDim2.fromOffset(36,32)
 	local body=U.New('Frame',{Position=UDim2.fromOffset(0,59),Size=UDim2.new(1,0,1,-59),BackgroundTransparency=1},frame); self.Body=body
 	local sidebar=U.New('ScrollingFrame',{Position=UDim2.fromOffset(12,14),Size=UDim2.new(0,152,1,-28),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y},body); self.Sidebar=sidebar
-	U.New('UIListLayout',{Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder},sidebar)
+	U.New('UIListLayout',{Padding=UDim.new(0,10),SortOrder=Enum.SortOrder.LayoutOrder},sidebar); U.Padding(sidebar,5,4)
 	self.Pages=U.New('Frame',{Position=UDim2.fromOffset(180,14),Size=UDim2.new(1,-196,1,-28),BackgroundTransparency=1,ClipsDescendants=true},body)
 	local function resize()
 		if self.Destroyed then return end
@@ -294,6 +336,7 @@ function Window.new(options,theme)
 		self.Minimized=not self.Minimized; body.Visible=not self.Minimized
 		U.Tween(frame,{Size=UDim2.fromOffset(self.Width or 760,self.Minimized and 59 or (self.Height or 520))},theme)
 	end)
+	U.Hover(self,minimize); U.Hover(self,close)
 	U.Connect(self,close.Activated,function() self:Destroy() end)
 	self.Notices=U.New('Frame',{AnchorPoint=Vector2.new(1,1),Position=UDim2.new(1,-12,1,-12),Size=UDim2.new(1,-24,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},root)
 	U.New('UISizeConstraint',{MaxSize=Vector2.new(340,10000)},self.Notices)
@@ -303,9 +346,13 @@ end
 function Window:CreateTab(options)
 	assert(not self.Destroyed,'Window destroyed'); options=options or {}
 	local tab=setmetatable({Window=self},Tab); local t=self.Theme
-	tab.Button=U.Button(self.Sidebar,options.Name or 'Tab',t); tab.Button.LayoutOrder=#self.Tabs+1; tab.Button.Size=UDim2.new(1,-4,0,44)
+	tab.Button=U.Button(self.Sidebar,options.Name or 'Tab',t); tab.Button.LayoutOrder=#self.Tabs+1; tab.Button.Size=UDim2.new(1,-14,0,46)
+	tab.Button.TextXAlignment=Enum.TextXAlignment.Left; U.Padding(tab.Button,18,0)
+	tab.Indicator=U.New('Frame',{Position=UDim2.new(0,-18,.5,-10),Size=UDim2.fromOffset(3,20),BackgroundColor3=t.Accent,BackgroundTransparency=1,BorderSizePixel=0},tab.Button); U.Round(tab.Indicator,2)
+	U.Gradient(tab.Indicator,t.AccentLight,t.Accent,90)
+	U.Hover(self,tab.Button,function(hovered) local color=tab.Selected and t.ActiveTab or t.Panel; return hovered and color:Lerp(t.Text,.04) or color end)
 	tab.Content=U.New('ScrollingFrame',{Visible=false,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),BorderSizePixel=0,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=3,ScrollBarImageColor3=t.Accent},self.Pages)
-	U.New('UIListLayout',{Padding=UDim.new(0,10),SortOrder=Enum.SortOrder.LayoutOrder},tab.Content)
+	U.New('UIListLayout',{Padding=UDim.new(0,14),SortOrder=Enum.SortOrder.LayoutOrder},tab.Content)
 	U.New('UIPadding',{PaddingTop=UDim.new(0,2),PaddingLeft=UDim.new(0,2),PaddingRight=UDim.new(0,8),PaddingBottom=UDim.new(0,10)},tab.Content)
 	table.insert(self.Tabs,tab)
 	U.Connect(self,tab.Button.Activated,function() self:SelectTab(tab) end)
@@ -315,8 +362,9 @@ end
 function Window:SelectTab(tab)
 	assert(table.find(self.Tabs,tab),'Tab belongs to another window')
 	for _,item in ipairs(self.Tabs) do
-		item.Content.Visible=item==tab
-		U.Tween(item.Button,{BackgroundColor3=item==tab and self.Theme.Accent or self.Theme.Surface,TextColor3=item==tab and self.Theme.Background or self.Theme.Muted},self.Theme)
+		item.Content.Visible=item==tab; item.Selected=item==tab
+		U.Tween(item.Indicator,{BackgroundTransparency=item==tab and 0 or 1},self.Theme)
+		U.Tween(item.Button,{BackgroundColor3=item==tab and self.Theme.ActiveTab or self.Theme.Panel,TextColor3=item==tab and self.Theme.Text or self.Theme.Muted},self.Theme)
 	end
 	tab.Content.Position=UDim2.fromOffset(0,8); U.Tween(tab.Content,{Position=UDim2.fromOffset(0,0)},self.Theme)
 end
@@ -350,7 +398,7 @@ factories.Init = function()
 -- ReplicatedStorage.NexusUI.Init (ModuleScript). Require from a LocalScript.
 local Theme=import("Theme")
 local Window=import("Window")
-local NexusUI={Version='1.0.0'}
+local NexusUI={Version='1.1.0'}
 -- NexusUI:CreateWindow({Title='NEXUS', Theme={Accent=Color3.fromRGB(255,51,51)}})
 function NexusUI:CreateWindow(options)
 	options=options or {}
