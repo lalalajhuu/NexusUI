@@ -107,6 +107,11 @@ end
 function Window:SetVisible(visible) if not self.Destroyed then self.Gui.Enabled=visible end end
 function Window:Destroy()
 	if self.Destroyed then return end; self.Destroyed=true
+	-- Synchronous cleanup lets application scripts stop their own loops before UI teardown.
+	if self.OnDestroy then
+		local ok,err=pcall(self.OnDestroy)
+		if not ok then warn('[NexusUI] cleanup: '..tostring(err)) end
+	end
 	for _,connection in ipairs(self.Connections) do connection:Disconnect() end
 	table.clear(self.Connections); self.Gui:Destroy()
 end

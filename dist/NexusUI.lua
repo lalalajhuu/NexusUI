@@ -134,7 +134,11 @@ function Control:Get() return self.Value end
 function Control:Set(value,silent)
 	if self.Dead then return end
 	self.Apply(value)
-	if not silent then U.Callback(self.Callback,self.Value) end
+	if not silent then
+		U.Callback(function(value)
+			if not self.Dead and not self.Window.Destroyed and self.Callback then self.Callback(value) end
+		end,self.Value)
+	end
 end
 function Control:Destroy() self.Dead=true; self.Frame:Destroy() end
 local function base(tab,options,height)
@@ -147,6 +151,17 @@ local function base(tab,options,height)
 	local title=U.Text(frame,options.Name or 'Control',15,t); title.Position=UDim2.fromOffset(0,0); title.Size=UDim2.new(1,0,0,22)
 	local c=setmetatable({Frame=frame,Callback=options.Callback,Window=w},Control)
 	return c,w,t,title
+end
+-- Static text and section headers for larger scripts, with automatic height.
+function Elements.Label(tab,o)
+	o=o or {}; local c,w,t,title=base(tab,o,64)
+	title.Text=o.Text or o.Name or ''; title.TextWrapped=true
+	title.TextColor3=o.Section and t.AccentLight or t.Muted
+	title.TextSize=o.Section and 14 or 12
+	title.Size=UDim2.new(1,0,0,0); title.AutomaticSize=Enum.AutomaticSize.Y
+	c.Frame.Size=UDim2.new(1,-2,0,0); c.Frame.AutomaticSize=Enum.AutomaticSize.Y
+	c.Apply=function(value) c.Value=tostring(value or ''); title.Text=c.Value end
+	c:Set(title.Text,true); return c
 end
 -- tab:CreateToggle({Name='Enabled', Default=false, Callback=function(value) end})
 function Elements.Toggle(tab,o)
@@ -227,7 +242,9 @@ end
 function Elements.Button(tab,o)
 	o=o or {}; local c,w,t,title=base(tab,o,80); title:Destroy()
 	local b=U.Button(c.Frame,o.Name or 'Button',t); b.AnchorPoint=Vector2.new(.5,.5); b.Position=UDim2.fromScale(.5,.5); b.Size=UDim2.new(1,0,0,40); U.Stroke(b,t.Border); U.Hover(w,b)
-	U.Connect(w,b.Activated,function() U.Callback(o.Callback) end); return c
+	U.Connect(w,b.Activated,function()
+		U.Callback(function() if not c.Dead and not w.Destroyed and o.Callback then o.Callback() end end)
+	end); return c
 end
 function Elements.Textbox(tab,o)
 	o=o or {}; local c,w,t=base(tab,o,124)
@@ -387,6 +404,11 @@ end
 function Window:SetVisible(visible) if not self.Destroyed then self.Gui.Enabled=visible end end
 function Window:Destroy()
 	if self.Destroyed then return end; self.Destroyed=true
+	-- Synchronous cleanup lets application scripts stop their own loops before UI teardown.
+	if self.OnDestroy then
+		local ok,err=pcall(self.OnDestroy)
+		if not ok then warn('[NexusUI] cleanup: '..tostring(err)) end
+	end
 	for _,connection in ipairs(self.Connections) do connection:Disconnect() end
 	table.clear(self.Connections); self.Gui:Destroy()
 end
@@ -398,7 +420,7 @@ factories.Init = function()
 -- ReplicatedStorage.NexusUI.Init (ModuleScript). Require from a LocalScript.
 local Theme=import("Theme")
 local Window=import("Window")
-local NexusUI={Version='1.1.0'}
+local NexusUI={Version='1.2.0'}
 -- NexusUI:CreateWindow({Title='NEXUS', Theme={Accent=Color3.fromRGB(255,51,51)}})
 function NexusUI:CreateWindow(options)
 	options=options or {}
