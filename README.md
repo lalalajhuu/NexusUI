@@ -1,5 +1,11 @@
 # NexusUI
 
+### Corre��o de visibilidade 1.2.1
+
+Em dispositivos com touch (incluindo emuladores que anunciam TouchEnabled), um bot�o N de 48 � 48 px fica sempre vis�vel no canto superior direito, acima do painel. Toque nele para esconder ou reabrir. No PC sem touch, o bot�o NEXUS + aparece quando o painel est� escondido.
+
+Right Shift agora � gerenciado pela biblioteca e funciona mesmo quando o jogo consome a tecla (por exemplo, Shift Lock), exceto durante digita��o em TextBoxes. O bot�o - esconde a janela inteira. Um bot�o NEXUS + permanece dispon�vel para reabrir no mouse ou touch. A tecla pode ser personalizada com `ToggleKey = Enum.KeyCode.RightShift` em CreateWindow. `SetVisible`, `Toggle`, `Minimize` e `Restore` compartilham o mesmo estado de visibilidade. `Gui.Enabled` permanece true para preservar o bot�o de reabertura; consulte `window.Frame.Visible` ou `window.Hidden` para verificar o estado do painel. O bot�o � continua encerrando a janela.
+
 ### Integra��o direta de fun��es
 
 O exemplo completo em [integrations/MonoMM2_Nexus.lua](integrations/MonoMM2_Nexus.lua) usa apenas os componentes nativos da NexusUI. Leia [os detalhes e limites da migra��o](integrations/README.md). Os cr�ditos e a licen�a do c�digo de jogo s�o separados da biblioteca.

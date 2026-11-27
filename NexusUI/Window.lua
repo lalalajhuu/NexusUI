@@ -1,4 +1,5 @@
 local Players=game:GetService('Players')
+local UserInputService=game:GetService('UserInputService')
 
 local U=require(script.Parent.Utility)
 local Elements=require(script.Parent.Elements)
@@ -13,6 +14,20 @@ function Window.new(options,theme)
 	local self=setmetatable({Theme=theme,Connections={},Tabs={},Destroyed=false},Window)
 	local gui=U.New('ScreenGui',{Name='NexusUI',ResetOnSpawn=false,IgnoreGuiInset=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,DisplayOrder=options.DisplayOrder or 50},Players.LocalPlayer:WaitForChild('PlayerGui')); self.Gui=gui
 	local root=U.New('Frame',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1},gui)
+	-- The ScreenGui stays enabled: the restore button must remain usable on touch.
+	local restore=U.Button(root,'NEXUS  +',theme)
+	self.TouchControls=UserInputService.TouchEnabled
+	restore.Name='RestoreNexusUI'; restore.Visible=self.TouchControls; restore.ZIndex=100
+	restore.AnchorPoint=Vector2.new(0,1); restore.Position=UDim2.new(0,16,1,-16)
+	restore.Size=UDim2.fromOffset(112,44); restore.TextColor3=theme.AccentLight
+	if self.TouchControls then
+		restore.Text='N'; restore.TextSize=19
+		restore.Size=UDim2.fromOffset(48,48)
+		restore.AnchorPoint=Vector2.new(1,0); restore.Position=UDim2.new(1,-16,0,16)
+	end
+	U.Stroke(restore,theme.Accent); self.RestoreButton=restore
+	U.Hover(self,restore)
+	U.Connect(self,restore.Activated,function() self:Toggle() end)
 	local frame=U.New('Frame',{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(760,520),BackgroundColor3=theme.Background,BorderSizePixel=0,ClipsDescendants=false},root); self.Frame=frame
 	local scale=U.New('UIScale',{},frame)
 	U.Round(frame,12); U.Stroke(frame,theme.Border)
@@ -38,7 +53,7 @@ function Window.new(options,theme)
 		sidebar.Size=UDim2.new(0,side,1,-28)
 		self.Pages.Position=UDim2.fromOffset(side+28,14); self.Pages.Size=UDim2.new(1,-side-44,1,-28)
 		scale.Scale=math.min(1,(size.X-20)/self.Width,(size.Y-20)/self.Height)
-		frame.Size=UDim2.fromOffset(self.Width,self.Minimized and 59 or self.Height)
+		frame.Size=UDim2.fromOffset(self.Width,self.Height)
 		-- Recenter on viewport changes to keep the title bar reachable.
 		frame.Position=UDim2.fromScale(.5,.5)
 	end
@@ -53,14 +68,19 @@ function Window.new(options,theme)
 		frame.Position=UDim2.fromOffset(x,y)
 	end)
 	U.Connect(self,minimize.Activated,function()
-		self.Minimized=not self.Minimized; body.Visible=not self.Minimized
-		U.Tween(frame,{Size=UDim2.fromOffset(self.Width or 760,self.Minimized and 59 or (self.Height or 520))},theme)
+		self:Minimize()
 	end)
 	U.Hover(self,minimize); U.Hover(self,close)
 	U.Connect(self,close.Activated,function() self:Destroy() end)
 	self.Notices=U.New('Frame',{AnchorPoint=Vector2.new(1,1),Position=UDim2.new(1,-12,1,-12),Size=UDim2.new(1,-24,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},root)
 	U.New('UISizeConstraint',{MaxSize=Vector2.new(340,10000)},self.Notices)
 	U.New('UIListLayout',{Padding=UDim.new(0,8),VerticalAlignment=Enum.VerticalAlignment.Bottom,SortOrder=Enum.SortOrder.LayoutOrder},self.Notices)
+	self.ToggleKey=options.ToggleKey or Enum.KeyCode.RightShift
+	U.Connect(self,UserInputService.InputBegan,function(input)
+		if self.Destroyed or UserInputService:GetFocusedTextBox() then return end
+		-- Shift Lock can consume RightShift. This UI shortcut still has to work.
+		if input.KeyCode==self.ToggleKey then self:Toggle() end
+	end)
 	return self
 end
 function Window:CreateTab(options)
@@ -104,7 +124,30 @@ function Window:Notify(options)
 	end)
 	return card
 end
-function Window:SetVisible(visible) if not self.Destroyed then self.Gui.Enabled=visible end end
+function Window:SetVisible(visible)
+	if self.Destroyed then return end
+	visible=visible==true
+	self.Hidden=not visible
+	self.Gui.Enabled=true
+	self.Frame.Visible=visible
+	self.Notices.Visible=visible
+	self.RestoreButton.Visible=self.TouchControls or not visible
+	if visible then
+		self.Minimized=false
+		self.Body.Visible=true
+	end
+end
+function Window:Toggle()
+	if not self.Destroyed then self:SetVisible(not self.Frame.Visible) end
+end
+function Window:Minimize()
+	if self.Destroyed then return end
+	self.Minimized=true
+	self:SetVisible(false)
+end
+function Window:Restore()
+	self:SetVisible(true)
+end
 function Window:Destroy()
 	if self.Destroyed then return end; self.Destroyed=true
 	-- Synchronous cleanup lets application scripts stop their own loops before UI teardown.

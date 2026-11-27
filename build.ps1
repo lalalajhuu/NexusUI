@@ -26,3 +26,12 @@ $bundle = $parts -join "`n`n"
 if ($bundle -match 'require\(script\.Parent\.') { throw 'Unresolved module reference' }
 [System.IO.File]::WriteAllText((Join-Path $bundleDir 'NexusUI.lua'), $bundle, [System.Text.UTF8Encoding]::new($false))
 Write-Output 'Built dist/NexusUI.lua'
+$moduleItems = foreach ($moduleName in @('Theme','Utility','Elements','Window','Init')) {
+    $source = [System.Security.SecurityElement]::Escape([System.IO.File]::ReadAllText((Join-Path $projectDir "NexusUI\$moduleName.lua")))
+    '<Item class="ModuleScript"><Properties><string name="Name">' + $moduleName + '</string><ProtectedString name="Source">' + $source + '</ProtectedString></Properties></Item>'
+}
+$modelXml = '<roblox version="4"><Item class="Folder"><Properties><string name="Name">NexusUI</string></Properties>' + ($moduleItems -join '') + '</Item></roblox>'
+$modelDoc = [xml]$modelXml
+if ($modelDoc.SelectNodes('//Item[@class="ModuleScript"]').Count -ne 5) { throw 'Invalid model' }
+[System.IO.File]::WriteAllText((Join-Path $projectDir 'NexusUI.rbxmx'), $modelXml, [System.Text.UTF8Encoding]::new($false))
+Write-Output 'Built NexusUI.rbxmx'

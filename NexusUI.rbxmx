@@ -1,4 +1,113 @@
-<roblox version="4"><Item class="Folder"><Properties><string name="Name">NexusUI</string></Properties><Item class="ModuleScript"><Properties><string name="Name">Elements</string><ProtectedString name="Source">local U=require(script.Parent.Utility)
+<roblox version="4"><Item class="Folder"><Properties><string name="Name">NexusUI</string></Properties><Item class="ModuleScript"><Properties><string name="Name">Theme</string><ProtectedString name="Source">-- Change this file before creating windows. Each window receives its own copy.
+return {
+	Background = Color3.fromRGB(10,10,10), Panel = Color3.fromRGB(21,21,21),
+	Surface = Color3.fromRGB(29,29,32), Border = Color3.fromRGB(45,45,50),
+	Accent = Color3.fromRGB(0,191,255), Text = Color3.fromRGB(255,255,255),
+	Muted = Color3.fromRGB(155,159,171), Success = Color3.fromRGB(77,220,151),
+	Error = Color3.fromRGB(255,51,51), Warning = Color3.fromRGB(255,190,65),
+	Font = Enum.Font.GothamMedium, Duration = 0.22, Radius = 8,
+	Hover = Color3.fromRGB(37,40,47), ActiveTab = Color3.fromRGB(17,32,43),
+	Dim = Color3.fromRGB(93,100,115), AccentDark = Color3.fromRGB(0,110,190),
+	AccentLight = Color3.fromRGB(116,225,255), Padding = 20,
+}
+</ProtectedString></Properties></Item><Item class="ModuleScript"><Properties><string name="Name">Utility</string><ProtectedString name="Source">local TweenService = game:GetService(&apos;TweenService&apos;)
+local UserInputService = game:GetService(&apos;UserInputService&apos;)
+local U = {}
+function U.New(class, props, parent)
+	local object = Instance.new(class)
+	for key,value in pairs(props or {}) do object[key] = value end
+	object.Parent = parent
+	return object
+end
+function U.Round(object, radius)
+	U.New(&apos;UICorner&apos;, {CornerRadius=UDim.new(0,radius or 8)}, object)
+end
+function U.Stroke(object, color)
+	return U.New(&apos;UIStroke&apos;, {Color=color, Transparency=.45, Thickness=1, ApplyStrokeMode=Enum.ApplyStrokeMode.Border}, object)
+end
+function U.Padding(object, horizontal, vertical)
+	return U.New(&apos;UIPadding&apos;,{PaddingLeft=UDim.new(0,horizontal),PaddingRight=UDim.new(0,horizontal),
+		PaddingTop=UDim.new(0,vertical),PaddingBottom=UDim.new(0,vertical)},object)
+end
+function U.Gradient(object, first, last, rotation)
+	return U.New(&apos;UIGradient&apos;,{Color=ColorSequence.new(first,last),Rotation=rotation or 0},object)
+end
+-- Scale the visual content from its center without changing its layout footprint.
+-- Supply dynamic colors for stateful controls (tabs and toggles).
+function U.Hover(window, button, colors)
+	local t=window.Theme
+	local scale=U.New(&apos;UIScale&apos;,{Scale=1},button)
+	local idle=button.BackgroundColor3
+	local function color(hovered)
+		return colors and colors(hovered) or (hovered and t.Hover or idle)
+	end
+	U.Connect(window,button.MouseEnter,function()
+		U.Tween(scale,{Scale=1.05},t); U.Tween(button,{BackgroundColor3=color(true)},t)
+	end)
+	U.Connect(window,button.MouseLeave,function()
+		U.Tween(scale,{Scale=1},t); U.Tween(button,{BackgroundColor3=color(false)},t)
+	end)
+	U.Connect(window,button.InputBegan,function(input)
+		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then U.Tween(scale,{Scale=.98},t) end
+	end)
+	U.Connect(window,button.InputEnded,function(input)
+		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then U.Tween(scale,{Scale=1},t) end
+	end)
+end
+function U.Tween(object, props, theme)
+	local tween = TweenService:Create(object,TweenInfo.new(theme.Duration,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),props)
+	tween:Play()
+	return tween
+end
+function U.Text(parent, text, size, theme)
+	return U.New(&apos;TextLabel&apos;,{BackgroundTransparency=1,Text=text or &apos;&apos;,TextColor3=theme.Text,
+		Font=theme.Font,TextSize=size or 13,TextXAlignment=Enum.TextXAlignment.Left,Size=UDim2.new(1,0,0,20)},parent)
+end
+function U.Button(parent, text, theme)
+	local b=U.New(&apos;TextButton&apos;,{AutoButtonColor=false,Text=text or &apos;&apos;,Font=theme.Font,TextSize=13,
+		TextColor3=theme.Text,BackgroundColor3=theme.Surface,BorderSizePixel=0,Size=UDim2.new(1,0,0,40)},parent)
+	U.Round(b,theme.Radius)
+	return b
+end
+function U.Input(parent, placeholder, theme)
+	local b=U.New(&apos;TextBox&apos;,{ClearTextOnFocus=false,Text=&apos;&apos;,PlaceholderText=placeholder or &apos;&apos;,
+		PlaceholderColor3=theme.Muted,Font=theme.Font,TextSize=13,TextColor3=theme.Text,
+		BackgroundColor3=theme.Surface,BorderSizePixel=0,Size=UDim2.new(1,0,0,38)},parent)
+	U.Round(b,theme.Radius)
+	return b
+end
+function U.Connect(window, signal, callback)
+	local connection=signal:Connect(callback)
+	table.insert(window.Connections,connection)
+	return connection
+end
+function U.Callback(callback,...)
+	if not callback then return end
+	local args=table.pack(...)
+	task.spawn(function()
+		local ok,err=pcall(callback,table.unpack(args,1,args.n))
+		if not ok then warn(&apos;[NexusUI] callback: &apos;..tostring(err)) end
+	end)
+end
+-- One input lifecycle for mouse and touch. Touch identity prevents multitouch jumps.
+function U.Drag(window, target, callback)
+	local active
+	U.Connect(window,target.InputBegan,function(input)
+		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+			active=input; callback(input.Position,true)
+		end
+	end)
+	U.Connect(window,UserInputService.InputChanged,function(input)
+		if active and (input==active or (active.UserInputType==Enum.UserInputType.MouseButton1 and input.UserInputType==Enum.UserInputType.MouseMovement)) then
+			callback(input.Position,false)
+		end
+	end)
+	U.Connect(window,UserInputService.InputEnded,function(input)
+		if input==active then active=nil end
+	end)
+end
+return U
+</ProtectedString></Properties></Item><Item class="ModuleScript"><Properties><string name="Name">Elements</string><ProtectedString name="Source">local U=require(script.Parent.Utility)
 local Elements={}
 local Control={}; Control.__index=Control
 function Control:Get() return self.Value end
@@ -162,128 +271,8 @@ function Elements.ColorPicker(tab,o)
 	c:Set(o.Default or t.Accent,true); return c
 end
 return Elements
-</ProtectedString></Properties></Item><Item class="ModuleScript"><Properties><string name="Name">Init</string><ProtectedString name="Source">-- ReplicatedStorage.NexusUI.Init (ModuleScript). Require from a LocalScript.
-local Theme=require(script.Parent.Theme)
-local Window=require(script.Parent.Window)
-local NexusUI={Version=&apos;1.2.0&apos;}
--- NexusUI:CreateWindow({Title=&apos;NEXUS&apos;, Theme={Accent=Color3.fromRGB(255,51,51)}})
-function NexusUI:CreateWindow(options)
-	options=options or {}
-	local theme=table.clone(Theme)
-	for key,value in pairs(options.Theme or {}) do theme[key]=value end
-	return Window.new(options,theme)
-end
-return NexusUI
-</ProtectedString></Properties></Item><Item class="ModuleScript"><Properties><string name="Name">Theme</string><ProtectedString name="Source">-- Change this file before creating windows. Each window receives its own copy.
-return {
-	Background = Color3.fromRGB(10,10,10), Panel = Color3.fromRGB(21,21,21),
-	Surface = Color3.fromRGB(29,29,32), Border = Color3.fromRGB(45,45,50),
-	Accent = Color3.fromRGB(0,191,255), Text = Color3.fromRGB(255,255,255),
-	Muted = Color3.fromRGB(155,159,171), Success = Color3.fromRGB(77,220,151),
-	Error = Color3.fromRGB(255,51,51), Warning = Color3.fromRGB(255,190,65),
-	Font = Enum.Font.GothamMedium, Duration = 0.22, Radius = 8,
-	Hover = Color3.fromRGB(37,40,47), ActiveTab = Color3.fromRGB(17,32,43),
-	Dim = Color3.fromRGB(93,100,115), AccentDark = Color3.fromRGB(0,110,190),
-	AccentLight = Color3.fromRGB(116,225,255), Padding = 20,
-}
-</ProtectedString></Properties></Item><Item class="ModuleScript"><Properties><string name="Name">Utility</string><ProtectedString name="Source">local TweenService = game:GetService(&apos;TweenService&apos;)
-local UserInputService = game:GetService(&apos;UserInputService&apos;)
-local U = {}
-function U.New(class, props, parent)
-	local object = Instance.new(class)
-	for key,value in pairs(props or {}) do object[key] = value end
-	object.Parent = parent
-	return object
-end
-function U.Round(object, radius)
-	U.New(&apos;UICorner&apos;, {CornerRadius=UDim.new(0,radius or 8)}, object)
-end
-function U.Stroke(object, color)
-	return U.New(&apos;UIStroke&apos;, {Color=color, Transparency=.45, Thickness=1, ApplyStrokeMode=Enum.ApplyStrokeMode.Border}, object)
-end
-function U.Padding(object, horizontal, vertical)
-	return U.New(&apos;UIPadding&apos;,{PaddingLeft=UDim.new(0,horizontal),PaddingRight=UDim.new(0,horizontal),
-		PaddingTop=UDim.new(0,vertical),PaddingBottom=UDim.new(0,vertical)},object)
-end
-function U.Gradient(object, first, last, rotation)
-	return U.New(&apos;UIGradient&apos;,{Color=ColorSequence.new(first,last),Rotation=rotation or 0},object)
-end
--- Scale the visual content from its center without changing its layout footprint.
--- Supply dynamic colors for stateful controls (tabs and toggles).
-function U.Hover(window, button, colors)
-	local t=window.Theme
-	local scale=U.New(&apos;UIScale&apos;,{Scale=1},button)
-	local idle=button.BackgroundColor3
-	local function color(hovered)
-		return colors and colors(hovered) or (hovered and t.Hover or idle)
-	end
-	U.Connect(window,button.MouseEnter,function()
-		U.Tween(scale,{Scale=1.05},t); U.Tween(button,{BackgroundColor3=color(true)},t)
-	end)
-	U.Connect(window,button.MouseLeave,function()
-		U.Tween(scale,{Scale=1},t); U.Tween(button,{BackgroundColor3=color(false)},t)
-	end)
-	U.Connect(window,button.InputBegan,function(input)
-		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then U.Tween(scale,{Scale=.98},t) end
-	end)
-	U.Connect(window,button.InputEnded,function(input)
-		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then U.Tween(scale,{Scale=1},t) end
-	end)
-end
-function U.Tween(object, props, theme)
-	local tween = TweenService:Create(object,TweenInfo.new(theme.Duration,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),props)
-	tween:Play()
-	return tween
-end
-function U.Text(parent, text, size, theme)
-	return U.New(&apos;TextLabel&apos;,{BackgroundTransparency=1,Text=text or &apos;&apos;,TextColor3=theme.Text,
-		Font=theme.Font,TextSize=size or 13,TextXAlignment=Enum.TextXAlignment.Left,Size=UDim2.new(1,0,0,20)},parent)
-end
-function U.Button(parent, text, theme)
-	local b=U.New(&apos;TextButton&apos;,{AutoButtonColor=false,Text=text or &apos;&apos;,Font=theme.Font,TextSize=13,
-		TextColor3=theme.Text,BackgroundColor3=theme.Surface,BorderSizePixel=0,Size=UDim2.new(1,0,0,40)},parent)
-	U.Round(b,theme.Radius)
-	return b
-end
-function U.Input(parent, placeholder, theme)
-	local b=U.New(&apos;TextBox&apos;,{ClearTextOnFocus=false,Text=&apos;&apos;,PlaceholderText=placeholder or &apos;&apos;,
-		PlaceholderColor3=theme.Muted,Font=theme.Font,TextSize=13,TextColor3=theme.Text,
-		BackgroundColor3=theme.Surface,BorderSizePixel=0,Size=UDim2.new(1,0,0,38)},parent)
-	U.Round(b,theme.Radius)
-	return b
-end
-function U.Connect(window, signal, callback)
-	local connection=signal:Connect(callback)
-	table.insert(window.Connections,connection)
-	return connection
-end
-function U.Callback(callback,...)
-	if not callback then return end
-	local args=table.pack(...)
-	task.spawn(function()
-		local ok,err=pcall(callback,table.unpack(args,1,args.n))
-		if not ok then warn(&apos;[NexusUI] callback: &apos;..tostring(err)) end
-	end)
-end
--- One input lifecycle for mouse and touch. Touch identity prevents multitouch jumps.
-function U.Drag(window, target, callback)
-	local active
-	U.Connect(window,target.InputBegan,function(input)
-		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
-			active=input; callback(input.Position,true)
-		end
-	end)
-	U.Connect(window,UserInputService.InputChanged,function(input)
-		if active and (input==active or (active.UserInputType==Enum.UserInputType.MouseButton1 and input.UserInputType==Enum.UserInputType.MouseMovement)) then
-			callback(input.Position,false)
-		end
-	end)
-	U.Connect(window,UserInputService.InputEnded,function(input)
-		if input==active then active=nil end
-	end)
-end
-return U
 </ProtectedString></Properties></Item><Item class="ModuleScript"><Properties><string name="Name">Window</string><ProtectedString name="Source">local Players=game:GetService(&apos;Players&apos;)
+local UserInputService=game:GetService(&apos;UserInputService&apos;)
 
 local U=require(script.Parent.Utility)
 local Elements=require(script.Parent.Elements)
@@ -298,6 +287,20 @@ function Window.new(options,theme)
 	local self=setmetatable({Theme=theme,Connections={},Tabs={},Destroyed=false},Window)
 	local gui=U.New(&apos;ScreenGui&apos;,{Name=&apos;NexusUI&apos;,ResetOnSpawn=false,IgnoreGuiInset=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,DisplayOrder=options.DisplayOrder or 50},Players.LocalPlayer:WaitForChild(&apos;PlayerGui&apos;)); self.Gui=gui
 	local root=U.New(&apos;Frame&apos;,{Size=UDim2.fromScale(1,1),BackgroundTransparency=1},gui)
+	-- The ScreenGui stays enabled: the restore button must remain usable on touch.
+	local restore=U.Button(root,&apos;NEXUS  +&apos;,theme)
+	self.TouchControls=UserInputService.TouchEnabled
+	restore.Name=&apos;RestoreNexusUI&apos;; restore.Visible=self.TouchControls; restore.ZIndex=100
+	restore.AnchorPoint=Vector2.new(0,1); restore.Position=UDim2.new(0,16,1,-16)
+	restore.Size=UDim2.fromOffset(112,44); restore.TextColor3=theme.AccentLight
+	if self.TouchControls then
+		restore.Text=&apos;N&apos;; restore.TextSize=19
+		restore.Size=UDim2.fromOffset(48,48)
+		restore.AnchorPoint=Vector2.new(1,0); restore.Position=UDim2.new(1,-16,0,16)
+	end
+	U.Stroke(restore,theme.Accent); self.RestoreButton=restore
+	U.Hover(self,restore)
+	U.Connect(self,restore.Activated,function() self:Toggle() end)
 	local frame=U.New(&apos;Frame&apos;,{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(760,520),BackgroundColor3=theme.Background,BorderSizePixel=0,ClipsDescendants=false},root); self.Frame=frame
 	local scale=U.New(&apos;UIScale&apos;,{},frame)
 	U.Round(frame,12); U.Stroke(frame,theme.Border)
@@ -323,7 +326,7 @@ function Window.new(options,theme)
 		sidebar.Size=UDim2.new(0,side,1,-28)
 		self.Pages.Position=UDim2.fromOffset(side+28,14); self.Pages.Size=UDim2.new(1,-side-44,1,-28)
 		scale.Scale=math.min(1,(size.X-20)/self.Width,(size.Y-20)/self.Height)
-		frame.Size=UDim2.fromOffset(self.Width,self.Minimized and 59 or self.Height)
+		frame.Size=UDim2.fromOffset(self.Width,self.Height)
 		-- Recenter on viewport changes to keep the title bar reachable.
 		frame.Position=UDim2.fromScale(.5,.5)
 	end
@@ -338,14 +341,19 @@ function Window.new(options,theme)
 		frame.Position=UDim2.fromOffset(x,y)
 	end)
 	U.Connect(self,minimize.Activated,function()
-		self.Minimized=not self.Minimized; body.Visible=not self.Minimized
-		U.Tween(frame,{Size=UDim2.fromOffset(self.Width or 760,self.Minimized and 59 or (self.Height or 520))},theme)
+		self:Minimize()
 	end)
 	U.Hover(self,minimize); U.Hover(self,close)
 	U.Connect(self,close.Activated,function() self:Destroy() end)
 	self.Notices=U.New(&apos;Frame&apos;,{AnchorPoint=Vector2.new(1,1),Position=UDim2.new(1,-12,1,-12),Size=UDim2.new(1,-24,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},root)
 	U.New(&apos;UISizeConstraint&apos;,{MaxSize=Vector2.new(340,10000)},self.Notices)
 	U.New(&apos;UIListLayout&apos;,{Padding=UDim.new(0,8),VerticalAlignment=Enum.VerticalAlignment.Bottom,SortOrder=Enum.SortOrder.LayoutOrder},self.Notices)
+	self.ToggleKey=options.ToggleKey or Enum.KeyCode.RightShift
+	U.Connect(self,UserInputService.InputBegan,function(input)
+		if self.Destroyed or UserInputService:GetFocusedTextBox() then return end
+		-- Shift Lock can consume RightShift. This UI shortcut still has to work.
+		if input.KeyCode==self.ToggleKey then self:Toggle() end
+	end)
 	return self
 end
 function Window:CreateTab(options)
@@ -389,7 +397,30 @@ function Window:Notify(options)
 	end)
 	return card
 end
-function Window:SetVisible(visible) if not self.Destroyed then self.Gui.Enabled=visible end end
+function Window:SetVisible(visible)
+	if self.Destroyed then return end
+	visible=visible==true
+	self.Hidden=not visible
+	self.Gui.Enabled=true
+	self.Frame.Visible=visible
+	self.Notices.Visible=visible
+	self.RestoreButton.Visible=self.TouchControls or not visible
+	if visible then
+		self.Minimized=false
+		self.Body.Visible=true
+	end
+end
+function Window:Toggle()
+	if not self.Destroyed then self:SetVisible(not self.Frame.Visible) end
+end
+function Window:Minimize()
+	if self.Destroyed then return end
+	self.Minimized=true
+	self:SetVisible(false)
+end
+function Window:Restore()
+	self:SetVisible(true)
+end
 function Window:Destroy()
 	if self.Destroyed then return end; self.Destroyed=true
 	-- Synchronous cleanup lets application scripts stop their own loops before UI teardown.
@@ -401,4 +432,16 @@ function Window:Destroy()
 	table.clear(self.Connections); self.Gui:Destroy()
 end
 return Window
+</ProtectedString></Properties></Item><Item class="ModuleScript"><Properties><string name="Name">Init</string><ProtectedString name="Source">-- ReplicatedStorage.NexusUI.Init (ModuleScript). Require from a LocalScript.
+local Theme=require(script.Parent.Theme)
+local Window=require(script.Parent.Window)
+local NexusUI={Version=&apos;1.2.1&apos;}
+-- NexusUI:CreateWindow({Title=&apos;NEXUS&apos;, Theme={Accent=Color3.fromRGB(255,51,51)}})
+function NexusUI:CreateWindow(options)
+	options=options or {}
+	local theme=table.clone(Theme)
+	for key,value in pairs(options.Theme or {}) do theme[key]=value end
+	return Window.new(options,theme)
+end
+return NexusUI
 </ProtectedString></Properties></Item></Item></roblox>
