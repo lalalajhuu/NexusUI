@@ -1,5 +1,11 @@
 # NexusUI
 
+### Integra��o direta de fun��es
+
+O exemplo completo em [integrations/MonoMM2_Nexus.lua](integrations/MonoMM2_Nexus.lua) usa apenas os componentes nativos da NexusUI. Leia [os detalhes e limites da migra��o](integrations/README.md). Os cr�ditos e a licen�a do c�digo de jogo s�o separados da biblioteca.
+
+Na vers�o 1.2, abas tamb�m oferecem `CreateLabel({Text='Texto', Section=false})`. Aplica��es podem definir `window.OnDestroy = function() ... end` para fazer limpeza s�ncrona ao encerrar a interface. Callbacks pendentes de bot�es e controles de valor s�o ignorados ap�s a destrui��o da janela.
+
 ### Visual refresh 1.1
 
 Pain�is com UIPadding (20 px horizontal / 16 px vertical), cantos de 8 px, contornos discretos e gradiente de superf�cie. Toggle com transi��o de posi��o/cor, slider com trilho de 10 px e thumb com borda branca e sombra. Dropdown com seta animada � direita. Abas com fundo escuro e indicador neon. GothamMedium, t�tulos de 15 px e subt�tulo de 9 px. Hover amplia bot�es em 1.05x com retorno suave e feedback de press�o. A API p�blica � compat�vel com a vers�o anterior.
