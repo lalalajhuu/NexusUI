@@ -105,7 +105,7 @@ local function trackGui(inst) table.insert(TRACKED, inst); protect(inst); return
 if typeof(loadstring)~="function" then
     return error("[MONO] Your executor has no loadstring, which the UI library needs.",0)
 end
-local NexusUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/lalalajhuu/NexusUI/d38c4d3cbf069e2c5797a92f7e7f6692714d4642/dist/NexusUI.lua"))()
+local NexusUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/lalalajhuu/NexusUI/da8b3470d72588a20df85cede239542597b625c2/dist/NexusUI.lua"))()
 local featureToggles, targetDropdowns = {}, {}
 
 local UI={}
@@ -1260,7 +1260,7 @@ local function refreshGuiRects(force)
     Mono.guiT=now
     Mono.guiIns=GuiService:GetGuiInset().Y
     Mono.guiN=0
-    if Window and not Window.Destroyed and Window.Gui.Enabled then
+    if Window and not Window.Destroyed and Window.Frame.Visible then
         Mono.addRect(Window.Frame)
     end
 end
@@ -3159,7 +3159,7 @@ end
 -- Application lifecycle: native NexusUI controls only.
 local Interface = Window:CreateTab({Name="Interface"})
 Interface:CreateLabel({Text="Game logic by Fleece. Interface rebuilt using NexusUI.\nhttps://robloxscripts.com/user/Fleece",Section=false})
-Interface:CreateLabel({Text="Right Shift hides or shows the menu. Closing the window stops the registered features."})
+Interface:CreateLabel({Text="Touch: tap the floating N button to hide or reopen. PC: Right Shift. The minus button hides the panel; closing it stops the registered features."})
 local function refreshTargets()
     if Window.Destroyed then return end
     local names=targetList()
@@ -3172,10 +3172,7 @@ Interface:CreateButton({Name="Compatibility report",Callback=function()
     Window:Notify({Title="Compatibility",Content=Fallback.text() or "No reduced features reported.",Type=Fallback.n>0 and "Warning" or "Success",Duration=8})
 end})
 Interface:CreateButton({Name="Unload script",Callback=function() Window:Destroy() end})
-bind(UserInputService.InputBegan,function(input,processed)
-    if processed or Window.Destroyed or UserInputService:GetFocusedTextBox() then return end
-    if input.KeyCode==Enum.KeyCode.RightShift then Window:SetVisible(not Window.Gui.Enabled) end
-end)
+-- The library owns the menu shortcut, so only one listener toggles the window.
 
 local function cleanup()
     if Mono.unloading then return end
@@ -3209,3 +3206,4 @@ end
 Window.OnDestroy=cleanup
 if GENV then GENV.MONO_Unload=function() Window:Destroy() end end
 Window:Notify({Title="NexusUI / MM2",Content="49 controls connected. Right Shift toggles the menu.",Type="Success"})
+
